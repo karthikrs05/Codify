@@ -48,8 +48,17 @@ src/
 ## Run Locally
 ```bash
 npm install
-npm run dev
 ```
+
+Create a `.env` (see `.env.example`) and start the full stack:
+
+```bash
+npm run dev:full
+```
+
+Notes:
+- Frontend runs on Vite (`http://localhost:5173`)
+- API runs on Express (`http://localhost:8787`) and is proxied via `/api`
 
 ## Vision
 Codify combines focused practice and competitive motivation into one product experience: solve consistently, level up intelligently, and keep improving with measurable momentum.

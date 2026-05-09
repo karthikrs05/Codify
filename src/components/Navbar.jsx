@@ -1,13 +1,21 @@
 import { Link, NavLink } from 'react-router-dom';
+import { useAuth } from '../auth/AuthProvider';
 
 export default function Navbar() {
-  const navItems = [
-    ['/', 'Home'],
-    ['/dashboard', 'Dashboard'],
-    ['/problem/1', 'Problems'],
-    ['/leaderboard', 'Leaderboard'],
-    ['/profile', 'Profile']
-  ];
+  const { isAuthed, logout } = useAuth();
+
+  const navItems = isAuthed
+    ? [
+        ['/', 'Home'],
+        ['/dashboard', 'Dashboard'],
+        ['/problem/1', 'Problems'],
+        ['/leaderboard', 'Leaderboard'],
+        ['/profile', 'Profile']
+      ]
+    : [
+        ['/', 'Home'],
+        ['/leaderboard', 'Leaderboard']
+      ];
 
   return (
     <header className="top-nav">
@@ -21,8 +29,14 @@ export default function Navbar() {
           ))}
         </nav>
         <div className="nav-actions">
-          <Link to="/login" className="btn ghost">Login</Link>
-          <Link to="/signup" className="btn primary">Sign Up</Link>
+          {isAuthed ? (
+            <button className="btn ghost" onClick={logout}>Logout</button>
+          ) : (
+            <>
+              <Link to="/login" className="btn ghost">Login</Link>
+              <Link to="/signup" className="btn primary">Start now</Link>
+            </>
+          )}
         </div>
       </div>
     </header>

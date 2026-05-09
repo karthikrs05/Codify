@@ -53,6 +53,21 @@ export default function Landing() {
         </section>
 
         <section className="mt-28">
+          <p className="section-tag">// about</p>
+          <article className="card">
+            <h2>Built for consistency, not cramming</h2>
+            <p className="muted">
+              Codify Arena helps you build real problem-solving momentum with daily streaks, guided paths, and
+              adaptive difficulty that ramps up as you improve.
+            </p>
+            <div className="btn-row mt-12">
+              <Link to="/signup" className="btn primary">Start now →</Link>
+              <Link to="/login" className="btn ghost">I already have an account</Link>
+            </div>
+          </article>
+        </section>
+
+        <section className="mt-28">
           <div className="steps-line">
             {[['1', 'Sign Up & Set Your Level'], ['2', 'Solve Adaptive Problems'], ['3', 'Level Up & Earn Rewards']].map(([n, t]) => (
               <div className="step" key={n}>
