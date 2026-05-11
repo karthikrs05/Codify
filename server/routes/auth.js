@@ -1,78 +1,111 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
-import { signToken } from '../lib/jwt.js';
-import { requireAuth } from '../middleware/requireAuth.js';
-import { validateEmailDomain } from '../lib/validateEmailDomain.js';
+import verifyToken from '../middleware/verifyToken.js';
 
 const router = Router();
 
+function signToken(user) {
+  return jwt.sign(
+    { id: user._id, username: user.username },
+    process.env.JWT_SECRET,
+    { expiresIn: '7d' }
+  );
+}
+
+function userPayload(user) {
+  return {
+    id: user._id,
+    username: user.username,
+    email: user.email,
+    xp: user.xp,
+    level: user.level,
+    streak: user.streak,
+    solved: user.solved,
+    rank: user.rank,
+    assessmentCompleted: user.assessment?.completed || false,
+    assessment: user.assessment,
+    currentTopic: user.currentTopic,
+    hasBossTask: !!user.currentBossTask,
+    preferredLanguage: user.preferredLanguage,
+  };
+}
+
+// POST /api/auth/signup
 router.post('/signup', async (req, res) => {
-  const { username, email, password } = req.body || {};
-  if (!username || !email || !password) return res.status(400).json({ error: 'missing_fields' });
-  if (typeof password !== 'string' || password.length < 8) return res.status(400).json({ error: 'weak_password' });
-
-  const domainCheck = await validateEmailDomain(String(email));
-  if (!domainCheck.ok) return res.status(400).json({ error: 'invalid_email_domain', details: domainCheck });
-
-  const existing = await User.findOne({ email: String(email).toLowerCase() }).select('_id');
-  if (existing) return res.status(409).json({ error: 'email_in_use' });
-
-  const baseHandle = String(username).trim().toLowerCase().replace(/[^a-z0-9_]+/g, '_').replace(/^_+|_+$/g, '');
-  let handle = baseHandle || `user${Math.floor(Math.random() * 100000)}`;
-  for (let i = 0; i < 5; i += 1) {
-    // eslint-disable-next-line no-await-in-loop
-    const handleExists = await User.findOne({ handle }).select('_id');
-    if (!handleExists) break;
-    handle = `${baseHandle || 'user'}${Math.floor(1000 + Math.random() * 9000)}`;
-  }
-
-  const passwordHash = await bcrypt.hash(String(password), 10);
-  const user = await User.create({
-    username: String(username).trim(),
-    handle,
-    email: String(email).toLowerCase().trim(),
-    passwordHash,
-    xp: 0,
-    streak: 0,
-    maxStreak: 0,
-    solved: 0,
-    location: ''
-  });
-
-  const token = signToken({ sub: user._id.toString() });
-  return res.json({
-    token,
-    user: { id: user._id.toString(), username: user.username, handle: user.handle, email: user.email }
-  });
-});
-
-router.post('/login', async (req, res) => {
-  const { email, password } = req.body || {};
-  if (!email || !password) return res.status(400).json({ error: 'missing_fields' });
-
-  const user = await User.findOne({ email: String(email).toLowerCase() });
-  if (!user) return res.status(401).json({ error: 'invalid_credentials' });
-
-  const ok = await bcrypt.compare(String(password), user.passwordHash);
-  if (!ok) return res.status(401).json({ error: 'invalid_credentials' });
-
-  const token = signToken({ sub: user._id.toString() });
-  return res.json({
-    token,
-    user: { id: user._id.toString(), username: user.username, handle: user.handle, email: user.email }
-  });
-});
-
-router.get('/me', requireAuth, async (req, res) => {
-  return res.json({
-    user: {
-      id: req.user._id.toString(),
-      username: req.user.username,
-      handle: req.user.handle,
-      email: req.user.email
+  try {
+    const { username, email, password } = req.body;
+    if (!username || !email || !password) {
+      return res.status(400).json({ error: 'All fields are required' });
     }
-  });
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+
+    const existingEmail = await User.findOne({ email: email.toLowerCase() });
+    if (existingEmail) {
+      return res.status(400).json({ error: 'Email already registered' });
+    }
+
+    const existingUsername = await User.findOne({ username });
+    if (existingUsername) {
+      return res.status(400).json({ error: 'Username taken' });
+    }
+
+    const hash = await bcrypt.hash(password, 10);
+    const user = await User.create({
+      username: username.trim(),
+      email: email.toLowerCase().trim(),
+      password: hash,
+    });
+
+    const token = signToken(user);
+    return res.status(201).json({ token, user: userPayload(user) });
+  } catch (err) {
+    console.error('Signup error:', err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// POST /api/auth/login
+router.post('/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      return res.status(400).json({ error: 'No account with that email' });
+    }
+
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid) {
+      return res.status(400).json({ error: 'Incorrect password' });
+    }
+
+    const token = signToken(user);
+    return res.json({ token, user: userPayload(user) });
+  } catch (err) {
+    console.error('Login error:', err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// GET /api/auth/me
+router.get('/me', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('-password');
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    return res.json({ user: userPayload(user) });
+  } catch (err) {
+    console.error('Me error:', err);
+    return res.status(500).json({ error: 'Server error' });
+  }
 });
 
 export default router;
