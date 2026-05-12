@@ -11,18 +11,6 @@ export default function Dashboard() {
   const [error, setError] = useState('');
   const [assessmentDone, setAssessmentDone] = useState(false);
   const [progress, setProgress] = useState(null);
-  const [countdown, setCountdown] = useState(3600);
-
-  useEffect(() => {
-    if (token) loadProgress();
-  }, [token]);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCountdown(c => c > 0 ? c - 1 : 0);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
 
   async function loadProgress() {
     try {
@@ -40,10 +28,7 @@ export default function Dashboard() {
     setLoading(false);
   }
 
-  const hours = Math.floor(countdown / 3600);
-  const mins = Math.floor((countdown % 3600) / 60);
-  const secs = countdown % 60;
-  const pad = n => String(n).padStart(2, '0');
+  useEffect(() => { loadProgress(); }, []);
 
   if (loading) {
     return (
@@ -233,31 +218,6 @@ export default function Dashboard() {
             </div>
           </>
         )}
-
-        <div className="dash-grid" style={{ marginTop: 24 }}>
-          <div>
-            <p className="section-title">// streak</p>
-            <div className="card">
-              <div className="streak-grid">
-                {Array.from({ length: 14 }, (_, i) => (
-                  <div key={i} className={`streak-cell ${i < 7 ? 'streak-filled' : 'streak-empty'}`} />
-                ))}
-              </div>
-              <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 10 }}>Last 14 days</p>
-            </div>
-          </div>
-          <div>
-            <p className="section-title" style={{ marginTop: 0 }}>// daily practice</p>
-            <div className="card daily-card">
-              <h3>🔥 Daily Practice</h3>
-              <p style={{ color: 'var(--muted)', fontSize: 13 }}>Keep your streak going!</p>
-              <div className="timer">{pad(hours)}:{pad(mins)}:{pad(secs)}</div>
-              <Link to="/practice" className="btn-primary" style={{ marginTop: 12, display: 'inline-block', textAlign: 'center', width: '100%' }}>
-                Solve Now →
-              </Link>
-            </div>
-          </div>
-        </div>
 
         {progress?.recentProblems && progress.recentProblems.length > 0 && (
           <>

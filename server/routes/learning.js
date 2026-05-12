@@ -81,6 +81,10 @@ router.get('/roadmap', verifyToken, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    if (!user.assessment?.completed) {
+      return res.status(400).json({ error: 'Complete assessment first', needsAssessment: true });
+    }
+
     const allTopics = user.roadmap?.length > 0
       ? user.roadmap.map(r => r.topic)
       : AVAILABLE_TOPICS;
@@ -499,6 +503,40 @@ router.post('/submit-question', verifyToken, async (req, res) => {
   }
 });
 
+router.post('/run-code', verifyToken, async (req, res) => {
+  try {
+    const { question, code, language } = req.body;
+    if (!question || !code) {
+      return res.status(400).json({ error: 'Question and code are required' });
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const evaluation = await evaluateCode(
+      question,
+      code,
+      language || user.preferredLanguage || 'python',
+      question.testCases
+    );
+
+    res.json({
+      passed: evaluation.passed,
+      verdict: evaluation.verdict,
+      passedTestCases: evaluation.passedTestCases,
+      totalTestCases: evaluation.totalTestCases,
+      failedTestCase: evaluation.failedTestCase,
+      feedback: evaluation.feedback,
+      suggestions: evaluation.suggestions,
+    });
+  } catch (err) {
+    console.error('Run code error:', err);
+    res.status(500).json({ error: 'Failed to run code', details: err.message });
+  }
+});
+
 router.get('/progress', verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select('assessment roadmap topicProgress solvedProblems currentTopic currentBossTask xp level solved');
@@ -519,6 +557,7 @@ router.get('/progress', verifyToken, async (req, res) => {
         topicsMastered: user.topicProgress?.filter(t => t.isMastered)?.length || 0,
         bossTasksCompleted: user.topicProgress?.filter(t => t.bossTaskCompleted)?.length || 0,
       },
+      solvedProblemsForHeatmap: user.solvedProblems || [],
       recentProblems: user.solvedProblems?.slice(-5)?.reverse() || [],
     });
   } catch (err) {

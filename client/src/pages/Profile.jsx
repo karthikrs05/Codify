@@ -105,9 +105,10 @@ export default function Profile() {
     if (token) loadData();
   }, [token]);
 
-  const solvedProblems = progress?.recentProblems || progress?.solvedProblems || [];
-  const heatmap = generateHeatmapFromData(solvedProblems);
-  const streak = calculateStreak(solvedProblems);
+  const allProblems = progress?.solvedProblemsForHeatmap || [];
+  const recentProblems = progress?.recentProblems || [];
+  const heatmap = generateHeatmapFromData(allProblems);
+  const streak = calculateStreak(allProblems);
   const totalActiveDays = heatmap.filter(v => v > 0).length;
 
   const stats = progress?.stats || { xp: 0, level: 1, totalSolved: 0, topicsMastered: 0, bossTasksCompleted: 0 };
@@ -265,11 +266,11 @@ export default function Profile() {
           </div>
         </div>
 
-        {solvedProblems.length > 0 && (
+        {recentProblems.length > 0 && (
           <>
             <p className="section-title">// recent activity</p>
             <div style={{ marginBottom: 24 }}>
-              {solvedProblems.slice(0, 5).map((p, i) => (
+              {recentProblems.map((p, i) => (
                 <div key={i} className="card" style={{ marginBottom: 8, padding: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div>
                     <h4 style={{ marginBottom: 4 }}>{p.title}</h4>

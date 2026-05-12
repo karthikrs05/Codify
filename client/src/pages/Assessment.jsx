@@ -16,6 +16,8 @@ export default function Assessment() {
   const [completed, setCompleted] = useState(false);
   const [result, setResult] = useState(null);
   const [language, setLanguage] = useState('python');
+  const [running, setRunning] = useState(false);
+  const [testResults, setTestResults] = useState(null);
 
   useEffect(() => {
     async function checkStatus() {
@@ -104,6 +106,48 @@ export default function Assessment() {
       setError('Network error. Please try again.');
     }
     setSubmitting(false);
+  }
+
+  async function handleRunAssessment() {
+    if (!currentQuestion) return;
+    setRunning(true);
+    setTestResults(null);
+    setError('');
+
+    const tc = currentQuestion.testCases?.slice(0, 3) || [];
+
+    try {
+      const res = await fetch('/api/learning/run-code', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          question: currentQuestion,
+          code: currentSubmission?.code || '',
+          language: currentSubmission?.language || 'python',
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setTestResults({
+          passed: data.passedTestCases || 0,
+          total: data.totalTestCases || tc.length,
+          results: tc.map((t, i) => ({
+            input: typeof t.input === 'string' ? t.input : JSON.stringify(t.input),
+            expected: typeof t.expected === 'string' ? t.expected : JSON.stringify(t.expected),
+            actual: data.failedTestCase?.actual || (i < (data.passedTestCases || 0) ? '✓' : '?'),
+            pass: i < (data.passedTestCases || 0),
+          })),
+        });
+      } else {
+        setError(data.error || 'Failed to run code');
+      }
+    } catch {
+      setError('Network error. Please try again.');
+    }
+    setRunning(false);
   }
 
   const currentQuestion = questions[currentIndex];
@@ -279,87 +323,112 @@ export default function Assessment() {
                 placeholder="Write your solution here..."
               />
 
-               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                 <button
-                   className="btn-ghost"
-                   onClick={() => {
-                     const id = currentQuestion?.id;
-                     if (id) {
-                       setSubmissions(prev => ({
-                         ...prev,
-                         [id]: { ...prev[id], skipped: true, code: prev[id]?.code || '' }
-                       }));
-                     }
-                     if (currentIndex < questions.length - 1) {
-                       setCurrentIndex(currentIndex + 1);
-                     }
-                   }}
-                   style={{ padding: '4px 10px', fontSize: 12, color: 'var(--dim)' }}
-                 >
-                   Skip this question →
-                 </button>
-               </div>
-
                <div className="editor-buttons" style={{ justifyContent: 'space-between' }}>
-                 <button
-                   className="btn-ghost"
-                   onClick={() => setCurrentIndex(Math.max(0, currentIndex - 1))}
-                   disabled={currentIndex === 0}
-                 >
-                   ← Previous
-                 </button>
+                  <button
+                    className="btn-ghost"
+                    onClick={() => setCurrentIndex(Math.max(0, currentIndex - 1))}
+                    disabled={currentIndex === 0}
+                  >
+                    ← Previous
+                  </button>
 
-                 <div style={{ display: 'flex', gap: 8 }}>
-                   {currentIndex === questions.length - 1 ? (
-                     <>
-                       <button
-                         className="btn-ghost"
-                         onClick={async () => {
-                           try {
-                             const res = await fetch('/api/assessment/submit', {
-                               method: 'POST',
-                               headers: {
-                                 'Content-Type': 'application/json',
-                                 Authorization: `Bearer ${token}`,
-                               },
-                               body: JSON.stringify({
-                                 isBeginnerSkip: true,
-                                 submissions: []
-                               }),
-                             });
-                             const data = await res.json();
-                             if (res.ok) {
-                               setResult(data);
-                               setCompleted(true);
-                             }
-                           } catch (err) {
-                             setError('Failed. Try answering at least one question.');
-                           }
-                         }}
-                         style={{ fontSize: 12, padding: '8px 14px' }}
-                       >
-                         I'm a Beginner →
-                       </button>
-                       <button
-                         className="btn-primary"
-                         onClick={handleSubmitAssessment}
-                         disabled={submitting}
-                         style={{ background: 'var(--green)' }}
-                       >
-                         {submitting ? 'Evaluating...' : 'Submit ✓'}
-                       </button>
-                     </>
-                   ) : (
-                     <button
-                       className="btn-primary"
-                       onClick={() => setCurrentIndex(currentIndex + 1)}
-                     >
-                       Next →
-                     </button>
-                   )}
-                 </div>
-               </div>
-            </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {currentIndex === questions.length - 1 ? (
+                      <>
+                        <button
+                          className="btn-ghost"
+                          onClick={async () => {
+                            try {
+                              const res = await fetch('/api/assessment/submit', {
+                                method: 'POST',
+                                headers: {
+                                  'Content-Type': 'application/json',
+                                  Authorization: `Bearer ${token}`,
+                                },
+                                body: JSON.stringify({
+                                  isBeginnerSkip: true,
+                                  submissions: []
+                                }),
+                              });
+                              const data = await res.json();
+                              if (res.ok) {
+                                setResult(data);
+                                setCompleted(true);
+                              }
+                            } catch (err) {
+                              setError('Failed. Try answering at least one question.');
+                            }
+                          }}
+                          style={{ fontSize: 12, padding: '8px 14px' }}
+                        >
+                          I'm a Beginner →
+                        </button>
+                        <button
+                          className="btn-primary"
+                          onClick={handleSubmitAssessment}
+                          disabled={submitting}
+                          style={{ background: 'var(--green)' }}
+                        >
+                          {submitting ? 'Evaluating...' : 'Submit ✓'}
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        className="btn-primary"
+                        onClick={() => setCurrentIndex(currentIndex + 1)}
+                      >
+                        Next →
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                  <button
+                    className="btn-ghost"
+                    onClick={handleRunAssessment}
+                    disabled={running}
+                    style={{ fontSize: 12, padding: '6px 14px' }}
+                  >
+                    {running ? 'Running...' : '▶ Run Code'}
+                  </button>
+                  <button
+                    className="btn-ghost"
+                    onClick={() => {
+                      const id = currentQuestion?.id;
+                      if (id) {
+                        setSubmissions(prev => ({
+                          ...prev,
+                          [id]: { ...prev[id], skipped: true, code: prev[id]?.code || '' }
+                        }));
+                      }
+                      if (currentIndex < questions.length - 1) {
+                        setCurrentIndex(currentIndex + 1);
+                      }
+                    }}
+                    style={{ padding: '6px 14px', fontSize: 12, color: 'var(--dim)' }}
+                  >
+                    Skip this question →
+                  </button>
+                </div>
+
+                {testResults && (
+                  <div className="test-results" style={{ marginTop: 12 }}>
+                    <p style={{ fontWeight: 600, marginBottom: 8 }}>
+                      Test Results: {testResults.passed}/{testResults.total} passed
+                    </p>
+                    {testResults.results?.map((t, i) => (
+                      <div key={i} style={{ fontSize: 13, marginBottom: 6 }}>
+                        <span className={t.pass ? 'test-pass' : 'test-fail'}>{t.pass ? '✅' : '❌'}</span>
+                        <span style={{ color: 'var(--muted)', marginLeft: 8 }}>Input: {t.input}</span>
+                        <span style={{ marginLeft: 8, color: t.pass ? 'var(--green)' : 'var(--red)' }}>
+                          → {t.actual}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+             </div>
           </div>
         )}
 
