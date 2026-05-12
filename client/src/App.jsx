@@ -9,6 +9,7 @@ import Practice from './pages/Practice';
 import Problem from './pages/Problem';
 import Leaderboard from './pages/Leaderboard';
 import Profile from './pages/Profile';
+import VerifyEmail from './pages/VerifyEmail';
 
 export default function App() {
   return (
@@ -23,6 +24,7 @@ export default function App() {
         <Route path="/problem" element={<Problem />} />
         <Route path="/leaderboard" element={<Leaderboard />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
       </Route>
     </Routes>
   );

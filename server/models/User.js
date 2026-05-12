@@ -85,6 +85,10 @@ const userSchema = new mongoose.Schema({
   currentTopic: { type: String },
   currentBossTask: { type: mongoose.Schema.Types.Mixed },
 
+  authenticated: { type: Number, default: 0 },
+  verificationCode: { type: String },
+  verificationCodeExpires: { type: Date },
+
   preferredLanguage: { type: String, default: 'python' },
 });
 
